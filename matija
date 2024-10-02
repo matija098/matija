@@ -1,0 +1,119 @@
+if not game:IsLoaded() then
+	game.Loaded:Wait()
+end
+
+-- Service Variables
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- // General Variables
+local Player = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local Mouse = Player:GetMouse()
+
+-- // Config / Variables?
+local Data = {
+	
+	Booleans = {
+		Steady = true,
+	},
+
+	Connections = {
+		RenderStepped = nil,
+		Move = nil,
+		Idle = nil,
+	},
+	
+	Numbers = {
+		Flags = 0,
+		MaxFlags = 1,
+	},
+
+	Positions = {
+		NewAcceleration = {},
+		OldAcceleration = {},
+		NewCameraOrientation = {},
+		OldCameraOrientation = {},
+	},
+	
+	Threads = {
+		One = nil,
+	},
+	
+}
+
+-- // Camera movement speed and Camera Orientation
+Data.Connections.Move = Mouse.Move:Connect(function()
+	
+    -- // Store Camera Orientation as Vector(X, Y, Z)
+	Data.Positions.NewCameraOrientation = {
+		Vector = math.ceil(Camera.CFrame:ToEulerAnglesXYZ()),
+	}
+	
+    -- // Make a thread to make sure nothing in the connection yields upon task.wait
+	Data.Threads.One = task.spawn(function()
+		
+        -- // Store Old Camera Positions as Vector(X, Y, Z)
+		Data.Positions.OldAcceleration = {
+			X = Camera.CFrame.Position.X,
+			Y = Camera.CFrame.Position.Y,
+			Z = Camera.CFrame.Position.Z,
+		}
+		
+		task.wait(0.1)
+
+        -- // Store New Camera Positions as Vector(X, Y, Z)
+		Data.Positions.NewAcceleration = {
+			X = Camera.CFrame.Position.X,
+			Y = Camera.CFrame.Position.Y,
+			Z = Camera.CFrame.Position.Z,
+		}
+		
+        -- // Compare stored Camera Positions to calculate Camera movement speed (new - old)
+		if 
+			(
+			Data.Positions.NewAcceleration.X - Data.Positions.OldAcceleration.X <= 0.6 and 
+			Data.Positions.NewAcceleration.Y - Data.Positions.OldAcceleration.Y <= 0.6 and 
+			Data.Positions.NewAcceleration.Z - Data.Positions.OldAcceleration.Z <= 0.6 and
+			
+			Data.Positions.NewAcceleration.X - Data.Positions.OldAcceleration.X >= -0.6 and 
+			Data.Positions.NewAcceleration.Y - Data.Positions.OldAcceleration.Y >= -0.6 and
+			Data.Positions.NewAcceleration.Z - Data.Positions.OldAcceleration.Z >= -0.6
+			)
+		then
+			Data.Booleans.Steady = true
+		else
+			Data.Booleans.Steady = false
+		end
+	end)
+	
+end)
+
+-- // Last Camera Position before mouse going idle
+Data.Connections.Idle = Mouse.Idle:Connect(function()
+	
+	Data.Positions.OldCameraOrientation = {
+		Vector = math.ceil(Camera.CFrame:ToEulerAnglesXYZ()),
+	}
+	
+end)
+
+-- // Compare stored values
+Data.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
+
+    -- // Checks if Camera is moving within speed limit
+	if Data.Booleans.Steady then
+        -- // Return until Positions
+		if Data.Positions.NewCameraOrientation.Vector and Data.Positions.OldCameraOrientation.Vector then
+            -- // Checks if the new Camera Orientation is the same as the last Camera Orientation
+			if Data.Positions.NewCameraOrientation.Vector ~= Data.Positions.OldCameraOrientation.Vector then
+				Data.Numbers.Flags += 1
+			end
+		end
+	end 
+	
+	if Data.Numbers.Flags >= Data.Numbers.MaxFlags then
+		Player:Kick("Aimbot / Aimlock")
+	end
+end)
